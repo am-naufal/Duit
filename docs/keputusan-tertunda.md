@@ -4,9 +4,11 @@ Rekap semua hal yang perlu keputusanmu atau sengaja ditunda, dikumpulkan dari
 pengerjaan ketujuh layar (Layar utama, Tambah transaksi, Ubah + hapus, Kelola
 kategori, Form kategori, Pengaturan, Ekspor Excel) plus data layer.
 
-Status per 11 September 2026 (diperbarui setelah B-2/B-3 selesai). Verifikasi
-terakhir: `assembleDebug`, `testDebugUnitTest` (23 tes hijau), `lintDebug`
-(0 temuan di kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**.
+Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3 selesai).
+Verifikasi terakhir: `assembleDebug`, `testDebugUnitTest` (23 tes hijau),
+`lintDebug` (0 temuan di kode `ui/` & `data/`) semua lulus. Release APK dengan
+R8: **3,24 MB**. Gestur seret (B-1) belum diverifikasi manual di perangkat —
+lihat catatan di bagian B-1.
 
 ---
 
@@ -88,17 +90,35 @@ mau kartu benar-benar terpisah dari sheet.
 
 ## B. Sengaja ditunda — pekerjaan yang belum ada
 
-### B-1. Seret untuk mengurutkan kategori (Kelola kategori §4)
+### B-1. Selesai 11 September 2026 — Seret untuk mengurutkan kategori (Kelola kategori §4)
 
-Handle `ic_geser` sudah digambar, tapi **gestur seret + simpan urutan belum
-diimplementasi**. Plumbing sudah siap:
-- `KategoriDao.perbaruiSemua(List<Kategori>)`
-- `DuitRepository.urutkanKategori(List<Kategori>)` — menulis ulang `urutan`
-  sesuai posisi
+Gestur seret di handle `ic_geser` sekarang diimplementasikan manual (tanpa
+library reorderable — tetap nol dependensi jaringan) di
+`KelolaKategoriScreen.kt`, komposabel privat `DaftarAktifBisaDiseret`:
+`detectDragGestures` langsung di handle (bukan `AfterLongPress` — handle sudah
+jadi target sentuh terpisah dari baris yang bisa diklik untuk mengubah, jadi
+tak perlu menunda dengan tekan-lama), `androidx.compose.runtime.key(baris.id)`
+supaya state/`pointerInput` tiap baris tidak reset saat urutan berubah, lalu
+memanggil `DuitRepository.urutkanKategori` (lewat
+`KelolaKategoriViewModel.urutkanUlang`, yang plumbing-nya memang sudah ada)
+begitu jari dilepas.
 
-Yang kurang: gesture `detectDragGesturesAfterLongPress` + animasi perpindahan
-item di `Column` daftar aktif, lalu panggil repo saat dilepas. Manual di Compose
-cukup rumit; alternatif: tambah library reorderable lokal (tak butuh internet).
+**Deviasi sadar:** hanya baris yang sedang diseret yang beranimasi mengikuti
+jari (`graphicsLayer { translationY = … }`); baris lain yang tergeser
+posisinya langsung berpindah tanpa animasi geser. Animasi penuh ala
+`LazyColumn`'s `Modifier.animateItem()` mengharuskan tiap baris kategori jadi
+item ter-lazy sendiri-sendiri, yang akan memecah satu bayangan kartu §4 jadi
+berbayang per baris — dianggap tidak sepadan untuk daftar kategori yang pendek.
+Kategori sistem ("Lainnya") dikecualikan dari penyeretan dan selalu tetap di
+posisi terakhir, sesuai catatan `sistem` di `BarisKategori`.
+
+**Belum diverifikasi:** gestur sentuh sebenarnya di perangkat/emulator (`assembleDebug`,
+`testDebugUnitTest`, `lintDebug` semua lulus, tapi ketiganya tak menjalankan
+gerakan seret sungguhan — itu butuh Compose UI test berbasis instrumentasi atau
+percobaan manual). Sebelum dianggap benar-benar selesai, coba di perangkat:
+seret kategori ke atas/bawah, lepas, tutup-buka layar lagi untuk pastikan
+urutan tersimpan; juga pastikan menyeret tidak ikut men-trigger klik "ubah"
+kategori.
 
 ### B-2 & B-3. Selesai 11 September 2026 — "Format tanggal" & "Hari awal bulan" diterapkan
 
