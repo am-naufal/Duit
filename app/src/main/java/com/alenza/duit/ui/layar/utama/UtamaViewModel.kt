@@ -2,7 +2,6 @@ package com.alenza.duit.ui.layar.utama
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.alenza.duit.data.DuitRepository
 import com.alenza.duit.data.FormatTanggal
@@ -13,6 +12,8 @@ import com.alenza.duit.data.PreferensiApp
 import com.alenza.duit.data.Ringkasan
 import com.alenza.duit.data.TipeTransaksi
 import com.alenza.duit.data.Transaksi
+import com.alenza.duit.ui.HasilAntarLayar
+import com.alenza.duit.ui.Pemberitahuan
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,7 +37,6 @@ import java.util.Locale
  */
 class UtamaViewModel(
     app: Application,
-    simpanan: SavedStateHandle,
 ) : AndroidViewModel(app) {
 
     private val repo = DuitRepository.dari(app)
@@ -54,13 +54,25 @@ class UtamaViewModel(
     private val undo = MutableStateFlow<HapusTertunda?>(null)
     private var jamUndo: Job? = null
 
+    private val pemberitahuan = Pemberitahuan(viewModelScope)
+
     init {
-        // Hasil "hapus" dari form (TambahScreen) dikirim balik lewat SavedStateHandle.
+        // Hasil "hapus" dari form (TambahScreen) — lihat HasilAntarLayar untuk
+        // kenapa ini tidak lagi lewat NavBackStackEntry.savedStateHandle.
         viewModelScope.launch {
-            simpanan.getStateFlow(KUNCI_HAPUS_DARI_FORM, 0L).collect { id ->
+            HasilAntarLayar.hapusTransaksiId.collect { id ->
                 if (id != 0L) {
-                    simpanan[KUNCI_HAPUS_DARI_FORM] = 0L
+                    HasilAntarLayar.tandaiHapusTransaksiSelesai()
                     hapusTransaksi(id)
+                }
+            }
+        }
+        // Pesan "Transaksi ditambahkan"/"diperbarui" dari TambahScreen.
+        viewModelScope.launch {
+            HasilAntarLayar.pesanUtama.collect { pesan ->
+                if (pesan != null) {
+                    HasilAntarLayar.tandaiPesanUtamaSelesai()
+                    pemberitahuan.tampilkan(pesan)
                 }
             }
         }
@@ -89,8 +101,9 @@ class UtamaViewModel(
                     repo.bulanTerakhir(),
                 ) { tx, kat, awal, akhir -> Sumber(tx, kat, awal, akhir) },
                 undo,
-            ) { sumber, undoSaatIni ->
-                rakit(periode, sumber, undoSaatIni, pref)
+                pemberitahuan.pesan,
+            ) { sumber, undoSaatIni, pesanSaatIni ->
+                rakit(periode, sumber, undoSaatIni, pesanSaatIni, pref)
             }
         }
         .stateIn(
@@ -141,6 +154,7 @@ class UtamaViewModel(
         periode: Periode,
         sumber: Sumber,
         undoSaatIni: HapusTertunda?,
+        pesanSaatIni: String?,
         pref: PreferensiApp,
     ): UtamaState {
         val transaksi = sumber.transaksi
@@ -200,14 +214,13 @@ class UtamaViewModel(
             rincian = ringkasan.rekapPengeluaran,
             hari = grup,
             undo = undoSaatIni,
+            pesan = pesanSaatIni,
             tampilkanInfoLokal = !pref.infoLokalSudahDilihat,
             memuat = false,
         )
     }
 
     companion object {
-        const val KUNCI_HAPUS_DARI_FORM = "hapusTransaksiId"
-
         private const val TAHAN_UNDO_MILLIS = 5_000L
 
         private val LOKAL = Locale("in", "ID")

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -46,6 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alenza.duit.R
 import com.alenza.duit.data.TipeTransaksi
 import com.alenza.duit.ui.komponen.KartuDuit
+import com.alenza.duit.ui.komponen.KartuNotifikasi
 import com.alenza.duit.ui.komponen.LingkaranIkon
 import com.alenza.duit.ui.komponen.SegmentedTipe
 import com.alenza.duit.ui.komponen.TombolIkon
@@ -54,6 +56,7 @@ import com.alenza.duit.ui.theme.GayaAngkaKecil
 import com.alenza.duit.ui.theme.GayaNamaBaris
 import com.alenza.duit.ui.theme.Kategori
 import com.alenza.duit.ui.theme.LayarKategori
+import com.alenza.duit.ui.theme.KartuAksi
 import com.alenza.duit.ui.theme.LayarUtama
 import com.alenza.duit.ui.theme.Spasi
 import com.alenza.duit.ui.theme.Sudut
@@ -94,55 +97,72 @@ fun KelolaKategoriScreen(
 ) {
     val padLayar = Modifier.padding(horizontal = Spasi.layar)
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .windowInsetsPadding(WindowInsets.systemBars),
+            .background(MaterialTheme.colorScheme.background),
     ) {
-        AppBar(onKembali = onKembali, onTambah = onTambah)
-
-        Spacer(Modifier.height(Spasi.s))
-        SegmentedTipe(state.tipe, onPilihTipe, padLayar)
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = Spasi.layar,
-                end = Spasi.layar,
-                top = Spasi.l,
-                bottom = Spasi.xxl,
-            ),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.systemBars),
         ) {
-            if (state.aktif.isNotEmpty()) {
-                item(key = "aktif") {
-                    KartuDuit(bentuk = Sudut.baris, isi = LayarUtama.kartuBarisIsi) {
-                        DaftarAktifBisaDiseret(
-                            daftar = state.aktif,
-                            onKlik = onEdit,
-                            onUrutanBaru = onUrutanBaru,
-                        )
+            AppBar(onKembali = onKembali, onTambah = onTambah)
+
+            Spacer(Modifier.height(Spasi.s))
+            SegmentedTipe(state.tipe, onPilihTipe, padLayar)
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Spasi.layar,
+                    end = Spasi.layar,
+                    top = Spasi.l,
+                    bottom = Spasi.xxl,
+                ),
+            ) {
+                if (state.aktif.isNotEmpty()) {
+                    item(key = "aktif") {
+                        KartuDuit(bentuk = Sudut.baris, isi = LayarUtama.kartuBarisIsi) {
+                            DaftarAktifBisaDiseret(
+                                daftar = state.aktif,
+                                onKlik = onEdit,
+                                onUrutanBaru = onUrutanBaru,
+                            )
+                        }
                     }
                 }
-            }
 
-            if (state.arsip.isNotEmpty()) {
-                item(key = "label-arsip") {
-                    Text(
-                        text = "DIARSIPKAN",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Warna.current.teksRedup,
-                        modifier = Modifier.padding(start = Spasi.xs, top = Spasi.xl, bottom = Spasi.s),
-                    )
-                }
-                item(key = "arsip") {
-                    KartuDuit(bentuk = Sudut.baris, isi = LayarUtama.kartuBarisIsi) {
-                        state.arsip.forEach { baris ->
-                            BarisArsip(baris, onPulihkan = { onPulihkan(baris.id) })
+                if (state.arsip.isNotEmpty()) {
+                    item(key = "label-arsip") {
+                        Text(
+                            text = "DIARSIPKAN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Warna.current.teksRedup,
+                            modifier = Modifier.padding(start = Spasi.xs, top = Spasi.xl, bottom = Spasi.s),
+                        )
+                    }
+                    item(key = "arsip") {
+                        KartuDuit(bentuk = Sudut.baris, isi = LayarUtama.kartuBarisIsi) {
+                            state.arsip.forEach { baris ->
+                                BarisArsip(baris, onPulihkan = { onPulihkan(baris.id) })
+                            }
                         }
                     }
                 }
             }
+        }
+
+        state.pesan?.let { pesan ->
+            KartuNotifikasi(
+                pesan = pesan,
+                key = pesan,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = Spasi.layar, vertical = KartuAksi.marginBawah)
+                    .fillMaxWidth(),
+            )
         }
     }
 }
@@ -410,6 +430,7 @@ private fun contoh(): KelolaKategoriState = KelolaKategoriState(
         BarisKategori(20, "Kopi harian", "makan", "#E0785C", 0, sistem = false),
         BarisKategori(21, "Rokok", "lainnya", "#94989E", 18, sistem = false),
     ),
+    pesan = null,
     memuat = false,
 )
 

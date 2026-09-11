@@ -4,18 +4,21 @@ Rekap semua hal yang perlu keputusanmu atau sengaja ditunda, dikumpulkan dari
 pengerjaan ketujuh layar (Layar utama, Tambah transaksi, Ubah + hapus, Kelola
 kategori, Form kategori, Pengaturan, Ekspor Excel) plus data layer.
 
-Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4 selesai, B-5
-sebagian besar terverifikasi lewat emulator sungguhan — dan menemukan +
-memperbaiki bug pemutus file .xlsx nyata di jalan — plus D-1 & B-6 ternyata
+Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4/B-8 selesai,
+B-5 sebagian besar terverifikasi lewat emulator sungguhan — dan menemukan +
+memperbaiki dua bug nyata di jalan: TOTAL laporan ekspor mencampur nominal
+masuk & keluar, dan `NavBackStackEntry.savedStateHandle` yang ternyata tak
+pernah benar-benar terhubung ke ViewModel tujuan — plus D-1 & B-6 ternyata
 sudah lama selesai, catatan basi diperbaiki). Verifikasi terakhir:
-`assembleDebug`, `testDebugUnitTest` (24 tes hijau), `lintDebug` (0 temuan di
+`assembleDebug`, `testDebugUnitTest` (26 tes hijau), `lintDebug` (0 temuan di
 kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**. Gestur
 seret (B-1) sudah diverifikasi manual di emulator sungguhan; mekanisme inti
 WorkManager (B-4) juga — Worker benar-benar dijadwalkan lewat
 `SystemJobScheduler` Android, bukan diam-diam tetap lewat coroutine biasa.
 Sisa pekerjaan nyata: skenario >5.000 baris sungguhan untuk B-4 (di luar
-jangkauan percobaan manual di sesi ini) dan verifikasi visual B-5 di aplikasi
-spreadsheet asli — keduanya dicatat di bagian masing-masing.
+jangkauan percobaan manual di sesi ini), grafik pengeluaran & saldo (belum
+dikerjakan), dan verifikasi visual B-5 di aplikasi spreadsheet asli — dicatat
+di bagian masing-masing.
 
 ---
 
@@ -286,6 +289,53 @@ bawah, bukan pekerjaan kode lagi.
 
 Dilewati — nilai visual rendah. Kondisi kosong lainnya (ikon + dua baris teks)
 sudah ada.
+
+### B-8. Selesai 11 September 2026 — Alert pemberitahuan untuk semua aksi CRUD
+
+Diminta pengguna: pemberitahuan saat menambah/mengubah/menghapus/dan
+lain-lain, cakupan penuh termasuk Pengaturan. Ditambahkan:
+
+- `ui/Pemberitahuan.kt` — kelas kecil (pola dipakai ulang, bukan ditulis 4x)
+  yang menyimpan satu pesan `StateFlow<String?>` dan menghapusnya sendiri
+  setelah 2,5 detik.
+- `ui/komponen/KartuNotifikasi.kt` — kartu mengambang gaya sama dengan
+  `KartuUrungkan` (§3) tapi tanpa tombol aksi, dipakai untuk konfirmasi yang
+  tak bisa/perlu diurungkan.
+- Dipasang di: Layar utama (tambah/ubah transaksi — "Transaksi
+  ditambahkan"/"diperbarui"), Kelola kategori (tambah/ubah/arsipkan/hapus
+  kategori dari Form kategori, plus pulihkan & urutkan langsung di layar itu
+  sendiri), Pengaturan (ganti tema/format tanggal/hari awal bulan).
+  Penghapusan transaksi tetap pakai `KartuUrungkan` yang sudah ada (dengan
+  tombol URUNGKAN) — tidak diduplikasi jadi dua kartu.
+
+**Bug arsitektur nyata ditemukan & diperbaiki di jalan.** Pesan dari
+Tambah/Form kategori awalnya dikirim ke layar sebelumnya lewat
+`NavBackStackEntry.savedStateHandle` — pola resmi Navigation Compose untuk
+"return a result", dan persis pola yang SUDAH DIPAKAI kode lama untuk
+forwarding hapus transaksi (`KUNCI_HAPUS_DARI_FORM`). Saat diverifikasi
+manual di emulator, pesan tak pernah muncul. Debugging dengan
+`System.identityHashCode` membuktikan: `SavedStateHandle` yang didapat lewat
+`previousBackStackEntry.savedStateHandle` **bukan instance yang sama** dengan
+`SavedStateHandle` yang di-inject ke constructor `UtamaViewModel` lewat
+`viewModel()` — bahkan sejak komposisi pertama, bukan cuma setelah navigasi.
+Akibatnya nilai yang di-`set()` di satu sisi tak pernah "terlihat" oleh
+`getStateFlow` di sisi lain.
+
+Ini artinya **forwarding hapus transaksi dari Form transaksi juga sudah lama
+tak berfungsi** sebelum sesi ini — bug lama yang tak pernah ketahuan karena
+belum pernah dicoba manual di perangkat sungguhan sampai sekarang.
+
+Diperbaiki dengan `ui/HasilAntarLayar.kt`: singleton sederhana (pola sama
+seperti `Preferensi`/`DuitRepository`) berisi beberapa `StateFlow` untuk
+membawa hasil antar layar, menggantikan `NavBackStackEntry.savedStateHandle`
+sepenuhnya untuk kasus ini. `UtamaViewModel` tak lagi butuh `SavedStateHandle`
+sama sekali (dulu cuma dipakai untuk forwarding ini). Diverifikasi ulang di
+emulator: tambah transaksi, hapus transaksi dari Form (kartu Urungkan), dan
+tambah kategori — ketiganya sekarang menampilkan kartu yang benar.
+
+`assembleDebug`, `testDebugUnitTest` (26 tes hijau, tak berubah — perbaikan
+ini murni jalur UI/navigasi, tak tersentuh tes JVM), `lintDebug` (0 temuan
+ui/ & data/) semua lulus.
 
 ---
 

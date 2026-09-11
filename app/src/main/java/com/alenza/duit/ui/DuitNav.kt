@@ -15,7 +15,6 @@ import com.alenza.duit.ui.layar.pengaturan.PengaturanRoute
 import com.alenza.duit.ui.layar.tambah.TambahRoute
 import com.alenza.duit.ui.layar.tambah.TambahViewModel
 import com.alenza.duit.ui.layar.utama.UtamaRoute
-import com.alenza.duit.ui.layar.utama.UtamaViewModel
 
 /**
  * Peta navigasi seluruh aplikasi. Layar yang belum ada (Ekspor, Pengaturan, Form
@@ -69,7 +68,15 @@ fun DuitNav() {
                 },
             ),
         ) {
-            FormKategoriRoute(onSelesai = { nav.popBackStack() })
+            FormKategoriRoute(
+                onSelesai = { nav.popBackStack() },
+                onAksiSelesai = { pesan ->
+                    // Serahkan tampilan kartu pemberitahuan ke Kelola kategori
+                    // (lewat HasilAntarLayar — lihat catatan di sana).
+                    HasilAntarLayar.kirimPesanKelolaKategori(pesan)
+                    nav.popBackStack()
+                },
+            )
         }
         composable(
             route = Rute.TAMBAH,
@@ -82,11 +89,15 @@ fun DuitNav() {
         ) {
             TambahRoute(
                 onSelesai = { nav.popBackStack() },
+                onSimpanSelesai = { pesan ->
+                    // Serahkan tampilan kartu pemberitahuan ke Layar utama
+                    // (lewat HasilAntarLayar — lihat catatan di sana).
+                    HasilAntarLayar.kirimPesanUtama(pesan)
+                    nav.popBackStack()
+                },
                 onHapus = { id ->
                     // Serahkan penghapusan + "Urungkan" ke Layar utama.
-                    nav.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set(UtamaViewModel.KUNCI_HAPUS_DARI_FORM, id)
+                    HasilAntarLayar.kirimHapusTransaksi(id)
                     nav.popBackStack()
                 },
             )
