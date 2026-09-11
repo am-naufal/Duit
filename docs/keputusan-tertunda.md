@@ -10,8 +10,11 @@ memperbaiki bug pemutus file .xlsx nyata di jalan — plus D-1 & B-6 ternyata
 sudah lama selesai, catatan basi diperbaiki). Verifikasi terakhir:
 `assembleDebug`, `testDebugUnitTest` (24 tes hijau), `lintDebug` (0 temuan di
 kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**. Gestur
-seret (B-1) dan jalur WorkManager (B-4) sama-sama belum diverifikasi manual di
-perangkat — lihat catatan di masing-masing bagian.
+seret (B-1) sudah diverifikasi manual di emulator sungguhan. Jalur WorkManager
+(B-4) masih belum — butuh >5.000 transaksi sungguhan, di luar jangkauan
+percobaan manual biasa. Sisa pekerjaan nyata cuma B-4 (menunggu volume data
+besar) dan verifikasi visual B-5 di aplikasi spreadsheet asli — keduanya
+dicatat di bagian masing-masing.
 
 ---
 
@@ -115,13 +118,16 @@ berbayang per baris — dianggap tidak sepadan untuk daftar kategori yang pendek
 Kategori sistem ("Lainnya") dikecualikan dari penyeretan dan selalu tetap di
 posisi terakhir, sesuai catatan `sistem` di `BarisKategori`.
 
-**Belum diverifikasi:** gestur sentuh sebenarnya di perangkat/emulator (`assembleDebug`,
-`testDebugUnitTest`, `lintDebug` semua lulus, tapi ketiganya tak menjalankan
-gerakan seret sungguhan — itu butuh Compose UI test berbasis instrumentasi atau
-percobaan manual). Sebelum dianggap benar-benar selesai, coba di perangkat:
-seret kategori ke atas/bawah, lepas, tutup-buka layar lagi untuk pastikan
-urutan tersimpan; juga pastikan menyeret tidak ikut men-trigger klik "ubah"
-kategori.
+**Diverifikasi manual 11 September 2026** di emulator sungguhan
+(`emulator-5554`, sama seperti verifikasi B-5): `adb shell input swipe` dari
+handle `ic_geser` kategori "Belanja" (posisi 1) turun melewati dua baris —
+hasilnya langsung berpindah ke posisi 3, di bawah "Tagihan", persis seperti
+seharusnya. Dipaksa-tutup aplikasi (`am force-stop`, bukan cuma pindah layar)
+lalu dibuka lagi: urutan baru tetap ada, membuktikan `urutkanUlang` benar-benar
+menulis ke Room, bukan cuma state lokal. Tap ke baris "Belanja" di posisi
+barunya tetap membuka "Ubah kategori" yang benar (nama, ikon, warna, status
+arsip cocok) — gestur seret tidak mengganggu klik-untuk-ubah. Tak ada
+`FATAL EXCEPTION` di logcat sepanjang percobaan.
 
 ### B-2 & B-3. Selesai 11 September 2026 — "Format tanggal" & "Hari awal bulan" diterapkan
 
