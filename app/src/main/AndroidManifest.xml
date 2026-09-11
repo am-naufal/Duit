@@ -2,8 +2,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      WorkManager (data/ekspor/EksporWorker.kt, PRD F-6 — ekspor >5.000 baris
+      selamat kalau aplikasi ditutup paksa) menarik beberapa izin lewat
+      manifest-nya sendiri yang tak benar-benar kita butuhkan. Dicoret supaya
+      manifest tetap sesempit mungkin dan bisa diverifikasi siapa pun (CLAUDE.md
+      aturan 1/2) — khususnya ACCESS_NETWORK_STATE, karena aplikasi ini memang
+      tak pernah bicara jaringan sama sekali:
+        - RECEIVE_BOOT_COMPLETED: menjadwal ulang pekerjaan setelah reboot HP.
+          Tak kita butuhkan untuk satu ekspor sekali jalan — HP reboot persis
+          di tengah ekspor cukup jarang, tinggal ekspor ulang.
+        - ACCESS_NETWORK_STATE: hanya dipakai WorkManager untuk mengevaluasi
+          `Constraints` bertipe jaringan. `EksporWorker` tak memakai constraint
+          jaringan sama sekali.
+        - FOREGROUND_SERVICE: hanya perlu kalau Worker memanggil setForeground()
+          untuk naik jadi foreground service. `EksporWorker` tak memanggilnya.
+      WAKE_LOCK tetap dipertahankan — itu yang membuat proses tulis-file
+      benar-benar bertahan saat layar mati / aplikasi di-swipe, inti dari
+      alasan WorkManager dipakai di sini.
+    -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove" />
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

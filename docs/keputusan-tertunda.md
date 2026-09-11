@@ -4,11 +4,12 @@ Rekap semua hal yang perlu keputusanmu atau sengaja ditunda, dikumpulkan dari
 pengerjaan ketujuh layar (Layar utama, Tambah transaksi, Ubah + hapus, Kelola
 kategori, Form kategori, Pengaturan, Ekspor Excel) plus data layer.
 
-Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3 selesai).
+Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4 selesai, plus
+D-1 & B-6 ternyata sudah lama selesai — catatan basi diperbaiki).
 Verifikasi terakhir: `assembleDebug`, `testDebugUnitTest` (23 tes hijau),
 `lintDebug` (0 temuan di kode `ui/` & `data/`) semua lulus. Release APK dengan
-R8: **3,24 MB**. Gestur seret (B-1) belum diverifikasi manual di perangkat —
-lihat catatan di bagian B-1.
+R8: **3,24 MB**. Gestur seret (B-1) dan jalur WorkManager (B-4) sama-sama belum
+diverifikasi manual di perangkat — lihat catatan di masing-masing bagian.
 
 ---
 
@@ -152,12 +153,48 @@ Tes baru `PeriodeTest` (5 tes) mengunci semantik ini; `LaporanTest` diubah untuk
 memakai `Periode` (dengan `hariAwalBulan = 1` tetap menghasilkan bulan kalender
 biasa, jadi hasil 31-baris-Agustus yang sudah ada tidak berubah).
 
-### B-4. WorkManager untuk ekspor volume besar (F-6)
+### B-4. Selesai 11 September 2026 — WorkManager untuk ekspor volume besar (F-6)
 
-Ekspor sekarang berjalan di coroutine `Dispatchers.IO` di dalam `EksporViewModel`.
-Untuk volume normal (ratusan transaksi) instan dan tak ada ANR. PRD F-6 minta
-`WorkManager` di atas 5.000 baris supaya proses selamat kalau app ditutup. Belum
-dikerjakan. `WorkManager` sudah ada di katalog dependensi tapi belum dipakai.
+Ekspor di atas 5.000 transaksi (`AMBANG_WORKMANAGER` di `EksporViewModel`)
+sekarang lewat `data/ekspor/EksporWorker.kt` (`CoroutineWorker`), bukan
+coroutine `viewModelScope` biasa — supaya penulisan file tetap selesai kalau
+aplikasi ditutup paksa di tengah proses. Volume normal (di bawah 5.000, jauh
+di atas pemakaian pribadi wajar) tetap lewat jalur langsung lama, karena instan
+dan tak perlu bertahan dari kematian proses.
+
+`EksporWorker` merakit ulang `LaporanBulanan` dari Room sendiri lewat
+`inputData` (uri tujuan + rentang `Periode`) — sengaja tidak memakai objek
+laporan yang sudah dihitung `EksporViewModel`, karena proses yang menjadwalkan
+Worker itu bisa saja sudah mati saat Worker benar-benar jalan.
+`EksporViewModel` mengamati progres/hasil lewat `WorkManager.getWorkInfoByIdFlow`.
+
+**Keputusan permission yang kamu setujui:** menambah `androidx.work:work-runtime-ktx`
+menarik empat permission lewat manifest library itu sendiri —
+`RECEIVE_BOOT_COMPLETED`, `ACCESS_NETWORK_STATE`, `FOREGROUND_SERVICE`, `WAKE_LOCK`
+(plus satu signature permission internal `<app>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`,
+tak terlihat pengguna). Tiga yang pertama dicoret lewat `tools:node="remove"` di
+`AndroidManifest.xml` karena tak dipakai fitur ini (tak ada constraint jaringan,
+tak ada reschedule-setelah-reboot, tak ada `setForeground()`) — terutama
+`ACCESS_NETWORK_STATE` yang paling bertentangan dengan janji "tanpa permission
+jaringan" (CLAUDE.md aturan 1). `WAKE_LOCK` **dipertahankan** karena itu yang
+membuat proses tulis-file benar-benar bertahan saat layar mati/app ditutup —
+inti alasan WorkManager dipakai. Manifest akhir sudah diverifikasi lewat
+`app/build/intermediates/merged_manifest/debug/.../AndroidManifest.xml`: hanya
+`WAKE_LOCK` + permission signature internal itu yang tersisa.
+
+Versi `work-runtime-ktx` dipatok ke **2.10.0** (bukan rilis terbaru) karena
+sesi ini tak punya akses jaringan untuk mengambil versi lain — itu yang sudah
+ada di cache Gradle lokal. `lintDebug` menandainya sebagai "versi lebih baru
+tersedia (2.11.2)", sama seperti dependensi lain di proyek ini; boleh dinaikkan
+kapan saja lewat Android Studio yang punya akses internet untuk build.
+
+**Belum diverifikasi:** jalur ini tak tersentuh `testDebugUnitTest` sama sekali
+(logic WorkManager perlu Robolectric atau instrumentasi, bukan tes JVM biasa),
+dan mustahil disimulasikan tanpa >5.000 transaksi sungguhan. Sebelum dianggap
+benar-benar selesai: buat >5.000 transaksi (atau turunkan `AMBANG_WORKMANAGER`
+sementara untuk uji coba), mulai ekspor, tutup paksa aplikasi (bukan cuma
+pindah layar) di tengah progres, buka lagi nanti dan pastikan file tetap
+tertulis lengkap di lokasi yang dipilih.
 
 ### B-5. Verifikasi file .xlsx di aplikasi spreadsheet (F-6 & DoD)
 
@@ -174,13 +211,16 @@ sebagai kriteria rilis. Sesi ini tak bisa membuka file. Perlu kamu:
 Unit test `LaporanTest` sudah mengunci angka-angkanya (total, saldo berjalan,
 jumlah baris harian, urutan kronologis) — tapi bukan validitas XML-nya.
 
-### B-6. Auto-filter pada header sheet Excel (F-6)
+### B-6. Sudah selesai — Auto-filter pada header sheet Excel (F-6)
 
-Header sudah **tebal + freeze pane**, tapi **auto filter belum diset** (API
-`setAutoFilter` di fastexcel 0.18.4 tak dipastikan tanpa pengujian). Aturan
-format lain sebagian: lebar kolom disetel, wrap text di kolom catatan, number
-format Rupiah sebagai angka, tanggal sebagai tipe tanggal Excel, baris TOTAL
-pakai `=SUM()`.
+Catatan ini juga sudah basi: `ws.setAutoFilter(...)` sudah dipanggil di
+`PenulisXlsx.kt` untuk ketiga sheet (Ringkasan, Transaksi, Harian), API
+`setAutoFilter` fastexcel 0.18.4 memang ada dan kompilasinya lulus. Header
+tebal + freeze pane + lebar kolom + wrap text catatan + number format Rupiah +
+tanggal sebagai tipe tanggal Excel + baris TOTAL `=SUM()` — semua sudah ada.
+Yang **masih** belum diverifikasi: apakah filter itu benar-benar berfungsi
+saat file dibuka di aplikasi spreadsheet sungguhan — itu bagian dari B-5 di
+bawah, bukan pekerjaan kode lagi.
 
 ### B-7. Panah putus-putus ke FAB (Layar utama §9, kondisi kosong)
 
@@ -211,8 +251,11 @@ sudah ada.
 
 ## D. Edge case kecil yang belum ditangani
 
-- **Kategori terpilih yang sudah diarsipkan** di Form transaksi mode ubah: tak
-  muncul sebagai chip → tak kelihatan terpilih, walau `bisaSimpan` tetap `true`.
+- ~~Kategori terpilih yang sudah diarsipkan di Form transaksi mode ubah: tak
+  muncul sebagai chip.~~ **Sudah ditangani** — `TambahViewModel.sisipkanArsipTerpilih`
+  menyisipkan kategori terarsip yang masih jadi kategori terpilih transaksi
+  yang sedang diubah kembali ke daftar chip (`KategoriChip.arsip`), supaya
+  tetap kelihatan terpilih. Catatan ini keliru, dibiarkan tercoret sebagai jejak.
 - **Layar sangat pendek** (< ~620 dp tinggi konten) di Form transaksi: elemen bisa
   terlalu rapat karena spec melarang scroll.
 - **Cold start tema**: `MainActivity` render dengan `Tema.SISTEM` sampai DataStore
