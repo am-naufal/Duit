@@ -76,20 +76,24 @@ object PenulisXlsx {
             ws.style(row, 4).format("0%").set()
         }
 
-        val totalRow = hdr + 1 + l.rekap.size
-        ws.value(totalRow, 0, "TOTAL")
-        if (l.rekap.isNotEmpty()) {
-            val awal = hdr + 2
-            val akhir = totalRow
-            ws.formula(totalRow, 2, "SUM(C$awal:C$akhir)")
-            ws.formula(totalRow, 3, "SUM(D$awal:D$akhir)")
-        } else {
-            ws.value(totalRow, 2, 0)
-            uang(ws, totalRow, 3, 0)
-        }
-        ws.style(totalRow, 3).format(FORMAT_RUPIAH).set()
-        ws.range(totalRow, 0, totalRow, 4).style().bold().set()
-        ws.setAutoFilter(hdr, 0, totalRow - 1, kolom.lastIndex)
+        // Dua baris subtotal terpisah per tipe — nominal masuk TIDAK PERNAH
+        // dijumlah bersama nominal keluar jadi satu angka. l.rekap sudah
+        // dikelompokkan pengeluaran dulu baru pemasukan (lihat RakitLaporan),
+        // jadi tiap kelompok tetap satu rentang baris berurutan untuk SUM.
+        // (Indeks di sini 0-based, gaya fastexcel — tulisSubtotal yang
+        // mengubahnya ke nomor baris Excel 1-based saat menulis rumus.)
+        val barisDataAwal = hdr + 1
+        val barisDataAkhir = hdr + l.rekap.size
+        val jumlahPengeluaran = l.rekap.count { it.tipe == TipeTransaksi.PENGELUARAN }
+        val barisAkhirPengeluaran = barisDataAwal + jumlahPengeluaran - 1
+        val barisAwalPemasukan = barisDataAwal + jumlahPengeluaran
+
+        val totalPengeluaranRow = barisDataAkhir + 1
+        tulisSubtotal(ws, totalPengeluaranRow, "TOTAL PENGELUARAN", barisDataAwal, barisAkhirPengeluaran)
+        val totalPemasukanRow = totalPengeluaranRow + 1
+        tulisSubtotal(ws, totalPemasukanRow, "TOTAL PEMASUKAN", barisAwalPemasukan, barisDataAkhir)
+
+        ws.setAutoFilter(hdr, 0, barisDataAkhir, kolom.lastIndex)
 
         ws.width(0, 22.0)
         ws.width(1, 14.0)
@@ -157,6 +161,26 @@ object PenulisXlsx {
         ws.width(0, 12.0)
         (1..4).forEach { ws.width(it, 16.0) }
         ws.freezePane(0, 1)
+    }
+
+    /**
+     * Baris subtotal ber-formula SUM, dibatasi ke satu tipe (lihat [tulisRingkasan]).
+     * [row], [barisAwal], [barisAkhir] adalah indeks baris 0-based ala fastexcel;
+     * teks rumus Excel butuh nomor baris 1-based, jadi dikonversi (+1) di sini saja.
+     */
+    private fun tulisSubtotal(ws: Worksheet, row: Int, label: String, barisAwal: Int, barisAkhir: Int) {
+        ws.value(row, 0, label)
+        if (barisAkhir >= barisAwal) {
+            val awalExcel = barisAwal + 1
+            val akhirExcel = barisAkhir + 1
+            ws.formula(row, 2, "SUM(C$awalExcel:C$akhirExcel)")
+            ws.formula(row, 3, "SUM(D$awalExcel:D$akhirExcel)")
+        } else {
+            ws.value(row, 2, 0)
+            uang(ws, row, 3, 0)
+        }
+        ws.style(row, 3).format(FORMAT_RUPIAH).set()
+        ws.range(row, 0, row, 4).style().bold().set()
     }
 
     private fun uang(ws: Worksheet, r: Int, c: Int, nilai: Long) {

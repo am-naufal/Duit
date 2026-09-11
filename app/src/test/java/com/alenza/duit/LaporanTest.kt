@@ -77,4 +77,48 @@ class LaporanTest {
         val tanggal = RakitLaporan.dari(periode, transaksi, kategori).transaksi.map { it.tanggal.dayOfMonth }
         assertEquals(listOf(3, 11, 20), tanggal)
     }
+
+    /**
+     * Bug dilaporkan pengguna: baris TOTAL di sheet Ringkasan menjumlahkan
+     * nominal pemasukan (mis. Gaji) bersama nominal pengeluaran jadi satu
+     * angka yang tak berarti — karena `rekap` dulu diurut lintas tipe murni
+     * berdasarkan nominal terbesar, bukan dikelompokkan per tipe. `PenulisXlsx`
+     * menghitung subtotal per tipe lewat satu rentang baris SUM yang
+     * mengandalkan pengelompokan ini; kalau baris pengeluaran & pemasukan
+     * terselang-seling, rentang SUM itu ikut salah.
+     */
+    @Test
+    fun rekap_dikelompokkan_per_tipe_bukan_digabung_urut_nominal() {
+        val belanja = Kategori(3, "Belanja", TipeTransaksi.PENGELUARAN, "belanja", "#B57BA6", urutan = 0)
+        // Nominal pemasukan sengaja dibuat jauh lebih besar dari pengeluaran —
+        // kalau rekap masih diurut murni berdasarkan nominal, baris Gaji akan
+        // muncul duluan dan menyelingi baris pengeluaran.
+        val transaksi = listOf(
+            tx(1, 5_000_000, TipeTransaksi.PEMASUKAN, gaji.id),
+            tx(2, 50_000, TipeTransaksi.PENGELUARAN, makan.id),
+            tx(3, 30_000, TipeTransaksi.PENGELUARAN, belanja.id),
+        )
+        val l = RakitLaporan.dari(periode, transaksi, kategori + belanja)
+
+        val tipeUrut = l.rekap.map { it.tipe }
+        val batasAkhirPengeluaran = tipeUrut.lastIndexOf(TipeTransaksi.PENGELUARAN)
+        val batasAwalPemasukan = tipeUrut.indexOf(TipeTransaksi.PEMASUKAN)
+        assertTrue(batasAwalPemasukan == -1 || batasAkhirPengeluaran < batasAwalPemasukan)
+    }
+
+    @Test
+    fun subtotal_rekap_per_tipe_sama_dengan_total_pemasukan_dan_pengeluaran() {
+        val belanja = Kategori(3, "Belanja", TipeTransaksi.PENGELUARAN, "belanja", "#B57BA6", urutan = 0)
+        val transaksi = listOf(
+            tx(1, 5_000_000, TipeTransaksi.PEMASUKAN, gaji.id),
+            tx(2, 50_000, TipeTransaksi.PENGELUARAN, makan.id),
+            tx(3, 30_000, TipeTransaksi.PENGELUARAN, belanja.id),
+        )
+        val l = RakitLaporan.dari(periode, transaksi, kategori + belanja)
+
+        val subtotalPengeluaran = l.rekap.filter { it.tipe == TipeTransaksi.PENGELUARAN }.sumOf { it.total }
+        val subtotalPemasukan = l.rekap.filter { it.tipe == TipeTransaksi.PEMASUKAN }.sumOf { it.total }
+        assertEquals(l.totalPengeluaran, subtotalPengeluaran)
+        assertEquals(l.totalPemasukan, subtotalPemasukan)
+    }
 }

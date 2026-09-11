@@ -122,8 +122,12 @@ object RakitLaporan {
                     persen = 0,
                 )
             }
-        val rekap = (rekapPengeluaran + rekapPemasukan)
             .sortedWith(compareByDescending<BarisRekap> { it.total }.thenBy { it.kategori })
+        // Kelompok pengeluaran lalu pemasukan, BUKAN digabung-urut lintas tipe —
+        // supaya baris rentangnya tetap berurutan per tipe di sheet Excel, jadi
+        // formula SUM subtotal (PenulisXlsx) tidak pernah menjumlah nominal
+        // masuk dengan nominal keluar jadi satu angka yang tak berarti.
+        val rekap = rekapPengeluaran + rekapPemasukan
 
         val namaBulan = bulan.atDay(1).format(BULAN_ID).replaceFirstChar { it.uppercase() }
 
