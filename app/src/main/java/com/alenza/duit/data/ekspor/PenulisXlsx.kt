@@ -57,7 +57,7 @@ object PenulisXlsx {
         uang(ws, 6, 1, l.totalPemasukan)
         ws.value(7, 0, "Total Pengeluaran")
         uang(ws, 7, 1, l.totalPengeluaran)
-        ws.value(8, 0, "Selisih")
+        ws.value(8, 0, "Sisa saldo")
         uang(ws, 8, 1, l.selisih)
         ws.range(6, 0, 8, 0).style().bold().set()
 
