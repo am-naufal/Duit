@@ -10,11 +10,12 @@ memperbaiki bug pemutus file .xlsx nyata di jalan — plus D-1 & B-6 ternyata
 sudah lama selesai, catatan basi diperbaiki). Verifikasi terakhir:
 `assembleDebug`, `testDebugUnitTest` (24 tes hijau), `lintDebug` (0 temuan di
 kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**. Gestur
-seret (B-1) sudah diverifikasi manual di emulator sungguhan. Jalur WorkManager
-(B-4) masih belum — butuh >5.000 transaksi sungguhan, di luar jangkauan
-percobaan manual biasa. Sisa pekerjaan nyata cuma B-4 (menunggu volume data
-besar) dan verifikasi visual B-5 di aplikasi spreadsheet asli — keduanya
-dicatat di bagian masing-masing.
+seret (B-1) sudah diverifikasi manual di emulator sungguhan; mekanisme inti
+WorkManager (B-4) juga — Worker benar-benar dijadwalkan lewat
+`SystemJobScheduler` Android, bukan diam-diam tetap lewat coroutine biasa.
+Sisa pekerjaan nyata: skenario >5.000 baris sungguhan untuk B-4 (di luar
+jangkauan percobaan manual di sesi ini) dan verifikasi visual B-5 di aplikasi
+spreadsheet asli — keduanya dicatat di bagian masing-masing.
 
 ---
 
@@ -196,13 +197,28 @@ ada di cache Gradle lokal. `lintDebug` menandainya sebagai "versi lebih baru
 tersedia (2.11.2)", sama seperti dependensi lain di proyek ini; boleh dinaikkan
 kapan saja lewat Android Studio yang punya akses internet untuk build.
 
-**Belum diverifikasi:** jalur ini tak tersentuh `testDebugUnitTest` sama sekali
-(logic WorkManager perlu Robolectric atau instrumentasi, bukan tes JVM biasa),
-dan mustahil disimulasikan tanpa >5.000 transaksi sungguhan. Sebelum dianggap
-benar-benar selesai: buat >5.000 transaksi (atau turunkan `AMBANG_WORKMANAGER`
-sementara untuk uji coba), mulai ekspor, tutup paksa aplikasi (bukan cuma
-pindah layar) di tengah progres, buka lagi nanti dan pastikan file tetap
-tertulis lengkap di lokasi yang dipilih.
+**Sebagian diverifikasi 11 September 2026** di emulator sungguhan:
+`AMBANG_WORKMANAGER` diturunkan sementara ke `0` (dikembalikan ke `5_000`
+setelah selesai — cek `git status` bersih, tak ada diff tersisa), lalu ekspor
+dipicu seperti biasa. Logcat mengonfirmasi jalurnya benar-benar lewat
+WorkManager, bukan diam-diam tetap lewat coroutine langsung:
+`WM-GreedyScheduler: Starting work for ... WM-WorkerWrapper: Starting work for
+com.alenza.duit.data.ekspor.EksporWorker`, progres ter-update
+(`Data {progres : 0.2}` → `1.0`), lalu `Worker result SUCCESS`. Ini
+membuktikan mekanisme intinya benar — Worker terdaftar ke `SystemJobScheduler`
+milik Android sendiri (bukan `viewModelScope`), yang secara desain memang
+bertahan dari kematian Activity/ViewModel.
+
+**Belum diverifikasi:** skenario "aplikasi ditutup paksa di tengah tulis file
+5.000+ baris" yang sebenarnya — dengan hanya beberapa transaksi di Room,
+penulisan selesai dalam hitungan milidetik (terlalu cepat untuk disela
+`am force-stop` secara manual), dan membuat >5.000 transaksi sungguhan di
+emulator tidak praktis lewat UI automation. `testDebugUnitTest` juga tak
+menyentuh jalur ini sama sekali (butuh Robolectric/instrumentasi, bukan tes
+JVM biasa). Kalau mau menutup celah terakhir ini: buat >5.000 transaksi
+sungguhan (atau turunkan `AMBANG_WORKMANAGER` sementara lagi dengan dataset
+kecil tapi tambahkan delay artifisial di `PenulisXlsx` untuk memperlambat
+tulisnya), lalu tutup paksa aplikasi persis di tengah progres.
 
 ### B-5. Sebagian besar selesai 11 September 2026 — dan menemukan bug nyata
 
