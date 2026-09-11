@@ -15,7 +15,13 @@ import java.util.Locale
  */
 object PenulisXlsx {
 
-    private const val FORMAT_RUPIAH = "\"Rp\"#,##0;[Red]-\"Rp\"#,##0"
+    // Teks literal "Rp" ditulis lewat escape backslash-per-huruf (\R\p), BUKAN
+    // "Rp" berkutip. fastexcel 0.18.4 menulis formatCode ini apa adanya ke atribut
+    // XML (numFmt formatCode="…") tanpa meng-escape tanda kutip di dalamnya —
+    // versi berkutip menghasilkan `formatCode=""Rp"#,##0…"` yang memutus atribut
+    // itu sendiri (styles.xml jadi XML tak valid, file .xlsx rusak saat dibuka).
+    // Ditemukan lewat verifikasi manual B-5 di docs/keputusan-tertunda.md.
+    private const val FORMAT_RUPIAH = "\\R\\p#,##0;[Red]-\\R\\p#,##0"
     private const val FORMAT_TANGGAL = "dd/mm/yyyy"
 
     private val LOKAL = Locale("in", "ID")

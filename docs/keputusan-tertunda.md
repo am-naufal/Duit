@@ -4,12 +4,14 @@ Rekap semua hal yang perlu keputusanmu atau sengaja ditunda, dikumpulkan dari
 pengerjaan ketujuh layar (Layar utama, Tambah transaksi, Ubah + hapus, Kelola
 kategori, Form kategori, Pengaturan, Ekspor Excel) plus data layer.
 
-Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4 selesai, plus
-D-1 & B-6 ternyata sudah lama selesai — catatan basi diperbaiki).
-Verifikasi terakhir: `assembleDebug`, `testDebugUnitTest` (23 tes hijau),
-`lintDebug` (0 temuan di kode `ui/` & `data/`) semua lulus. Release APK dengan
-R8: **3,24 MB**. Gestur seret (B-1) dan jalur WorkManager (B-4) sama-sama belum
-diverifikasi manual di perangkat — lihat catatan di masing-masing bagian.
+Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4 selesai, B-5
+sebagian besar terverifikasi lewat emulator sungguhan — dan menemukan +
+memperbaiki bug pemutus file .xlsx nyata di jalan — plus D-1 & B-6 ternyata
+sudah lama selesai, catatan basi diperbaiki). Verifikasi terakhir:
+`assembleDebug`, `testDebugUnitTest` (24 tes hijau), `lintDebug` (0 temuan di
+kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**. Gestur
+seret (B-1) dan jalur WorkManager (B-4) sama-sama belum diverifikasi manual di
+perangkat — lihat catatan di masing-masing bagian.
 
 ---
 
@@ -196,20 +198,56 @@ sementara untuk uji coba), mulai ekspor, tutup paksa aplikasi (bukan cuma
 pindah layar) di tengah progres, buka lagi nanti dan pastikan file tetap
 tertulis lengkap di lokasi yang dipilih.
 
-### B-5. Verifikasi file .xlsx di aplikasi spreadsheet (F-6 & DoD)
+### B-5. Sebagian besar selesai 11 September 2026 — dan menemukan bug nyata
 
-**Belum dilakukan.** F-6 dan Definition of Done menjadikan "file terbuka bersih
-di Microsoft Excel, Google Sheets, LibreOffice Calc, dan Google Sheets Android"
-sebagai kriteria rilis. Sesi ini tak bisa membuka file. Perlu kamu:
-1. jalankan ekspor di perangkat/emulator
-2. buka hasilnya di keempat aplikasi
-3. cek: tak ada peringatan "file rusak", kolom nominal terbaca sebagai angka
-   (SUM muncul di status bar), total sheet Ringkasan == total di layar,
-   saldo berjalan baris terakhir == selisih, catatan dengan koma/kutip/emoji
-   utuh.
+Sesi ini ternyata **punya** akses ke emulator Android yang sedang berjalan
+(bukan cuma JVM), jadi bagian dari B-5 bisa dikerjakan langsung, bukan cuma
+didokumentasikan sebagai "perlu kamu". Yang dilakukan:
 
-Unit test `LaporanTest` sudah mengunci angka-angkanya (total, saldo berjalan,
-jumlah baris harian, urutan kronologis) — tapi bukan validitas XML-nya.
+1. **Menemukan & memperbaiki bug pemutus file nyata.** `FORMAT_RUPIAH` di
+   `PenulisXlsx.kt` memakai teks literal berkutip (`"\"Rp\"#,##0;[Red]-\"Rp\"#,##0"`).
+   fastexcel 0.18.4 menulis string itu apa adanya ke atribut XML
+   `<numFmt formatCode="...">` di `xl/styles.xml` **tanpa meng-escape tanda
+   kutip di dalamnya** — hasilnya `formatCode=""Rp"#,##0;[Red]-"Rp"#,##0"`,
+   yang memutus atribut itu sendiri. Setiap file .xlsx yang pernah diekspor
+   aplikasi ini kemungkinan besar akan memicu peringatan "file rusak, coba
+   perbaiki?" di Excel/Sheets/LibreOffice manapun — persis skenario terburuk
+   yang dikhawatirkan F-6/DoD. **Diperbaiki** dengan escape backslash-per-huruf
+   (`\R\p#,##0;[Red]-\R\p#,##0`, valid dan setara di sintaks format Excel,
+   tak melibatkan tanda kutip sama sekali).
+2. **Tes permanen baru** `PenulisXlsxTest.kt` mem-parse ULANG setiap entry XML
+   di dalam file .xlsx yang sungguhan ditulis `PenulisXlsx` (lewat `ZipFile` +
+   `DocumentBuilder`) dan menuntut semuanya well-formed — kelas bug ini kini
+   akan selalu tertangkap `testDebugUnitTest`, bukan cuma kelihatan kalau ada
+   yang iseng membuka filenya. `LaporanTest` yang lama hanya mengunci
+   angka-angka, tak pernah membuka file yang sungguhan ditulis.
+3. **Dikonfirmasi lewat 3 jalur independen**, sebelum dan sesudah perbaikan:
+   - JVM: harness manual (dihapus setelah dipakai) menulis file edge-case
+     (koma, kutip ganda, emoji dengan surrogate pair, `<`, `&`, apostrof di
+     catatan) — sebelum perbaikan `openpyxl` gagal total dengan
+     `ParseError: not well-formed`; sesudah perbaikan semua utuh persis,
+     termasuk catatan edge-case-nya.
+   - Emulator sungguhan (`emulator-5554`): transaksi ditambah lewat UI,
+     ekspor dipicu lewat "Ekspor laporan bulan ini" → SAF picker → simpan ke
+     Downloads, ditarik lewat `adb pull`, divalidasi dengan `openpyxl` —
+     9 entry XML semua well-formed, total Ringkasan (Pemasukan 4.000.000 /
+     Pengeluaran 850.000 / Selisih 3.150.000) cocok persis dengan yang
+     tertampil di layar, saldo berjalan baris terakhir == selisih.
+   - Tak ada crash/`FATAL EXCEPTION` di logcat selama seluruh alur.
+
+**Masih perlu kamu** (di luar jangkauan sesi ini): membuka file hasil ekspor
+di aplikasi spreadsheet SUNGGUHAN — Microsoft Excel, Google Sheets (web &
+Android), LibreOffice Calc — karena "well-formed XML" belum tentu sama dengan
+"semua aplikasi menampilkannya persis seperti yang dimaksud" (mis. locale
+angka, lebar kolom di layar kecil, rendering emoji). Risiko file benar-benar
+gagal dibuka sudah jauh berkurang setelah bug di atas diperbaiki, tapi
+verifikasi visual di aplikasi asli tetap DoD yang belum tercentang.
+
+Catatan sampingan: mengetik teks lewat `adb shell input text` di emulator ini
+sangat tidak reliable untuk karakter khusus (kutip, emoji) — huruf sering
+hilang/tertukar urutan bahkan untuk teks ASCII biasa. Untuk verifikasi konten
+presisi, tulis lewat harness JVM langsung ke `PenulisXlsx`, bukan lewat
+simulasi ketikan di UI.
 
 ### B-6. Sudah selesai — Auto-filter pada header sheet Excel (F-6)
 
