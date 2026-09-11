@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /**
  * Satu-satunya pintu ke data. UI mengamati `Flow` dari sini; sumber kebenaran
@@ -29,6 +30,10 @@ class DuitRepository(
 
     fun transaksiPeriode(periode: Periode): Flow<List<Transaksi>> =
         transaksiDao.amatiRentang(periode.awal.toEpochDay(), periode.akhir.toEpochDay())
+
+    /** Rentang tanggal bebas (bukan satu [Periode]) — untuk grafik tren beberapa bulan. */
+    fun transaksiRentangTanggal(awal: LocalDate, akhir: LocalDate): Flow<List<Transaksi>> =
+        transaksiDao.amatiRentang(awal.toEpochDay(), akhir.toEpochDay())
 
     fun ringkasanPeriode(periode: Periode): Flow<RingkasanBulanan> =
         combine(transaksiPeriode(periode), kategoriDao.amatiSemua()) { tx, kat ->

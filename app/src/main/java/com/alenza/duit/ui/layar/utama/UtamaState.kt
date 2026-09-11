@@ -35,6 +35,8 @@ data class UtamaState(
     val pesan: String?,
     /** Bilah "Data hanya tersimpan di HP ini" (design-spec §9) belum ditutup. */
     val tampilkanInfoLokal: Boolean,
+    /** Data grafik pengeluaran & saldo — harian (periode ini) & bulanan (tren). */
+    val grafik: DataGrafik,
     val memuat: Boolean,
 ) {
     val kosong: Boolean get() = !memuat && hari.isEmpty()
@@ -53,8 +55,34 @@ data class UtamaState(
             undo = null,
             pesan = null,
             tampilkanInfoLokal = false,
+            grafik = DataGrafik.kosong(),
             memuat = true,
         )
+    }
+}
+
+/** Satu titik pada grafik batang/garis: label sumbu-X + nilai rupiah. */
+data class TitikGrafik(val label: String, val nilai: Long)
+
+/** Rentang waktu yang ditampilkan grafik — dipilih lewat toggle di layar. */
+enum class RentangGrafik { HARIAN, BULANAN }
+
+/**
+ * Data untuk grafik pengeluaran & grafik saldo tersisa di Layar utama.
+ * "Harian" = tiap hari dalam periode yang sedang dilihat (saldo dihitung
+ * kumulatif dari awal periode, sama seperti sheet "Harian" di ekspor Excel).
+ * "Bulanan" = satu titik per periode untuk beberapa periode terakhir; saldo
+ * bulanan BUKAN kumulatif lintas periode — tiap titik berdiri sendiri sebagai
+ * pemasukan−pengeluaran periode itu saja, sama seperti arti "Sisa bulan ini".
+ */
+data class DataGrafik(
+    val pengeluaranHarian: List<TitikGrafik>,
+    val pengeluaranBulanan: List<TitikGrafik>,
+    val saldoHarian: List<TitikGrafik>,
+    val saldoBulanan: List<TitikGrafik>,
+) {
+    companion object {
+        fun kosong() = DataGrafik(emptyList(), emptyList(), emptyList(), emptyList())
     }
 }
 

@@ -65,10 +65,13 @@ import com.alenza.duit.R
 import com.alenza.duit.data.RekapKategori
 import com.alenza.duit.data.TipeTransaksi
 import com.alenza.duit.data.Transaksi
+import com.alenza.duit.ui.komponen.GrafikBatang
+import com.alenza.duit.ui.komponen.GrafikGaris
 import com.alenza.duit.ui.komponen.KartuDuit
 import com.alenza.duit.ui.komponen.KartuNotifikasi
 import com.alenza.duit.ui.komponen.KartuUrungkan
 import com.alenza.duit.ui.komponen.LingkaranIkon
+import com.alenza.duit.ui.komponen.SegmentedDua
 import com.alenza.duit.ui.komponen.TombolIkon
 import com.alenza.duit.ui.theme.DuitTheme
 import com.alenza.duit.ui.theme.GayaAngkaKecil
@@ -182,6 +185,16 @@ fun UtamaScreen(
                             Spacer(Modifier.height(Spasi.antarBlok))
                             BlokRincian(state.rincian)
                         }
+                    }
+
+                    item(key = "grafik-pengeluaran") {
+                        Spacer(Modifier.height(Spasi.antarBlok))
+                        BlokGrafikPengeluaran(state.grafik)
+                    }
+
+                    item(key = "grafik-saldo") {
+                        Spacer(Modifier.height(Spasi.antarBlok))
+                        BlokGrafikSaldo(state.grafik)
                     }
 
                     itemsHari(state.hari, onTransaksiDiklik, onHapusTransaksi)
@@ -499,6 +512,66 @@ private fun BarProporsi(fraksi: Float, warna: Color) {
     }
 }
 
+// ──────────────────────── Grafik pengeluaran & saldo ────────────────────
+// Fitur alert/grafik — di luar tujuh layar design-spec asli. Toggle
+// Harian/Bulanan disimpan lokal (bukan di UtamaState) karena keduanya sudah
+// dihitung sekali di ViewModel; berpindah cuma memilih data yang mana yang
+// ditampilkan, tak perlu query ulang.
+
+@Composable
+private fun BlokGrafikPengeluaran(grafik: DataGrafik) {
+    var rentang by rememberSaveable { mutableStateOf(RentangGrafik.HARIAN) }
+    KartuDuit(bentuk = Sudut.kartu, isi = Spasi.xl) {
+        Text(
+            text = "Grafik pengeluaran",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Spasi.m))
+        ToggleRentangGrafik(rentang, onPilih = { rentang = it })
+        Spacer(Modifier.height(Spasi.l))
+        val data = if (rentang == RentangGrafik.HARIAN) grafik.pengeluaranHarian else grafik.pengeluaranBulanan
+        GrafikBatang(
+            data = data,
+            warna = Warna.current.pengeluaran,
+            labelSetiap = if (rentang == RentangGrafik.HARIAN) 5 else 1,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun BlokGrafikSaldo(grafik: DataGrafik) {
+    var rentang by rememberSaveable { mutableStateOf(RentangGrafik.HARIAN) }
+    KartuDuit(bentuk = Sudut.kartu, isi = Spasi.xl) {
+        Text(
+            text = "Grafik saldo tersisa",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Spasi.m))
+        ToggleRentangGrafik(rentang, onPilih = { rentang = it })
+        Spacer(Modifier.height(Spasi.l))
+        val data = if (rentang == RentangGrafik.HARIAN) grafik.saldoHarian else grafik.saldoBulanan
+        GrafikGaris(
+            data = data,
+            labelSetiap = if (rentang == RentangGrafik.HARIAN) 5 else 1,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun ToggleRentangGrafik(terpilih: RentangGrafik, onPilih: (RentangGrafik) -> Unit) {
+    SegmentedDua(
+        opsiSatu = "Harian",
+        opsiDua = "Bulanan",
+        satuAktif = terpilih == RentangGrafik.HARIAN,
+        onPilihSatu = { onPilih(RentangGrafik.HARIAN) },
+        onPilihDua = { onPilih(RentangGrafik.BULANAN) },
+    )
+}
+
 // ──────────────────────── Daftar transaksi ─────────────────────────
 
 private fun LazyListScope.itemsHari(
@@ -786,6 +859,32 @@ private fun contohState(): UtamaState = UtamaState(
     undo = null,
     pesan = null,
     tampilkanInfoLokal = false,
+    grafik = DataGrafik(
+        pengeluaranHarian = listOf(
+            45_000L, 0L, 92_000L, 60_000L, 0L, 150_000L, 35_000L, 0L, 80_000L, 22_000L,
+            0L, 65_000L, 110_000L, 0L, 40_000L, 55_000L, 0L, 200_000L, 30_000L, 0L,
+            75_000L, 0L, 95_000L, 60_000L, 0L, 265_000L, 0L, 92_000L,
+        ).mapIndexed { i, nilai -> TitikGrafik((i + 1).toString(), nilai) },
+        pengeluaranBulanan = listOf(
+            "Mar" to 4_200_000L, "Apr" to 3_800_000L, "Mei" to 5_100_000L,
+            "Jun" to 4_650_000L, "Jul" to 5_800_000L, "Agu" to 5_050_000L,
+        ).map { (label, nilai) -> TitikGrafik(label, nilai) },
+        saldoHarian = run {
+            var kumulatif = 0L
+            listOf(
+                8_500_000L, -45_000L, -92_000L, -60_000L, 0L, -150_000L, -35_000L, 0L, -80_000L, -22_000L,
+                0L, -65_000L, -110_000L, 0L, -40_000L, -55_000L, 0L, -200_000L, -30_000L, 0L,
+                -75_000L, 0L, -95_000L, -60_000L, 0L, -265_000L, 0L, -92_000L,
+            ).mapIndexed { i, delta ->
+                kumulatif += delta
+                TitikGrafik((i + 1).toString(), kumulatif)
+            }
+        },
+        saldoBulanan = listOf(
+            "Mar" to 1_200_000L, "Apr" to (-350_000L), "Mei" to 2_100_000L,
+            "Jun" to 900_000L, "Jul" to (-600_000L), "Agu" to 3_450_000L,
+        ).map { (label, nilai) -> TitikGrafik(label, nilai) },
+    ),
     memuat = false,
 )
 

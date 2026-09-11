@@ -93,6 +93,13 @@ class UtamaViewModel(
                 manual ?: Periode.labelUntuk(LocalDate.now(), pref.hariAwalBulan),
                 pref.hariAwalBulan,
             )
+            // Rentang lebar untuk grafik tren bulanan — beberapa periode terakhir
+            // termasuk periode yang sedang dilihat.
+            val awalTren = Periode.dariLabel(
+                periode.label.minusMonths(JUMLAH_BULAN_TREN - 1L),
+                pref.hariAwalBulan,
+            ).awal
+
             combine(
                 combine(
                     repo.transaksiPeriode(periode),
@@ -102,8 +109,9 @@ class UtamaViewModel(
                 ) { tx, kat, awal, akhir -> Sumber(tx, kat, awal, akhir) },
                 undo,
                 pemberitahuan.pesan,
-            ) { sumber, undoSaatIni, pesanSaatIni ->
-                rakit(periode, sumber, undoSaatIni, pesanSaatIni, pref)
+                repo.transaksiRentangTanggal(awalTren, periode.akhir),
+            ) { sumber, undoSaatIni, pesanSaatIni, transaksiTren ->
+                rakit(periode, sumber, undoSaatIni, pesanSaatIni, pref, transaksiTren)
             }
         }
         .stateIn(
@@ -156,6 +164,7 @@ class UtamaViewModel(
         undoSaatIni: HapusTertunda?,
         pesanSaatIni: String?,
         pref: PreferensiApp,
+        transaksiTren: List<Transaksi>,
     ): UtamaState {
         val transaksi = sumber.transaksi
         val kategori = sumber.kategori
@@ -216,15 +225,69 @@ class UtamaViewModel(
             undo = undoSaatIni,
             pesan = pesanSaatIni,
             tampilkanInfoLokal = !pref.infoLokalSudahDilihat,
+            grafik = hitungGrafik(periode, transaksi, transaksiTren, hariAwal),
             memuat = false,
         )
+    }
+
+    /**
+     * Harian: dalam periode yang sedang dilihat saja, saldo kumulatif dari 0 di
+     * awal periode (sama seperti sheet "Harian" ekspor Excel). Bulanan: satu
+     * titik per periode untuk [JUMLAH_BULAN_TREN] periode terakhir termasuk
+     * periode ini; saldo bulanan bukan kumulatif lintas periode — tiap titik
+     * cuma pemasukan−pengeluaran periode itu sendiri (arti yang sama dengan
+     * "Sisa bulan ini").
+     */
+    private fun hitungGrafik(
+        periode: Periode,
+        transaksiPeriodeIni: List<Transaksi>,
+        transaksiTren: List<Transaksi>,
+        hariAwalBulan: Int,
+    ): DataGrafik {
+        var kumulatif = 0L
+        val jumlahHari = (periode.akhir.toEpochDay() - periode.awal.toEpochDay() + 1).toInt()
+        val pengeluaranHarian = ArrayList<TitikGrafik>(jumlahHari)
+        val saldoHarian = ArrayList<TitikGrafik>(jumlahHari)
+        for (i in 0 until jumlahHari) {
+            val tgl = periode.awal.plusDays(i.toLong())
+            val epoch = tgl.toEpochDay()
+            val hariIni = transaksiPeriodeIni.filter { it.tanggal == epoch }
+            val keluar = hariIni.filter { it.tipe == TipeTransaksi.PENGELUARAN }.sumOf { it.nominal }
+            val masuk = hariIni.filter { it.tipe == TipeTransaksi.PEMASUKAN }.sumOf { it.nominal }
+            kumulatif += masuk - keluar
+            val label = tgl.dayOfMonth.toString()
+            pengeluaranHarian += TitikGrafik(label, keluar)
+            saldoHarian += TitikGrafik(label, kumulatif)
+        }
+
+        val pengeluaranBulanan = ArrayList<TitikGrafik>(JUMLAH_BULAN_TREN)
+        val saldoBulanan = ArrayList<TitikGrafik>(JUMLAH_BULAN_TREN)
+        for (i in (JUMLAH_BULAN_TREN - 1) downTo 0) {
+            val labelPeriode = periode.label.minusMonths(i.toLong())
+            val p = Periode.dariLabel(labelPeriode, hariAwalBulan)
+            val rentang = p.awal.toEpochDay()..p.akhir.toEpochDay()
+            val txBulanIni = transaksiTren.filter { it.tanggal in rentang }
+            val keluar = txBulanIni.filter { it.tipe == TipeTransaksi.PENGELUARAN }.sumOf { it.nominal }
+            val masuk = txBulanIni.filter { it.tipe == TipeTransaksi.PEMASUKAN }.sumOf { it.nominal }
+            val label = labelPeriode.atDay(1).format(FORMAT_BULAN_PENDEK).replaceFirstChar { it.uppercase() }
+            pengeluaranBulanan += TitikGrafik(label, keluar)
+            saldoBulanan += TitikGrafik(label, masuk - keluar)
+        }
+
+        return DataGrafik(pengeluaranHarian, pengeluaranBulanan, saldoHarian, saldoBulanan)
     }
 
     companion object {
         private const val TAHAN_UNDO_MILLIS = 5_000L
 
+        /** Jumlah periode (termasuk yang sedang dilihat) di grafik tren bulanan. */
+        private const val JUMLAH_BULAN_TREN = 6
+
         private val LOKAL = Locale("in", "ID")
         private val FORMAT_BULAN = DateTimeFormatter.ofPattern("MMMM yyyy", LOKAL)
+
+        /** Label sumbu-X grafik tren bulanan — "Agu", bukan "Agustus 2026". */
+        private val FORMAT_BULAN_PENDEK = DateTimeFormatter.ofPattern("MMM", LOKAL)
 
         /** Sesuai contoh Pengaturan §8: PANJANG "25 Agu 2026", RINGKAS "25/08/2026". */
         private val FORMAT_HARI_PANJANG = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", LOKAL)

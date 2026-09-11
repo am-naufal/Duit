@@ -4,21 +4,22 @@ Rekap semua hal yang perlu keputusanmu atau sengaja ditunda, dikumpulkan dari
 pengerjaan ketujuh layar (Layar utama, Tambah transaksi, Ubah + hapus, Kelola
 kategori, Form kategori, Pengaturan, Ekspor Excel) plus data layer.
 
-Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4/B-8 selesai,
-B-5 sebagian besar terverifikasi lewat emulator sungguhan — dan menemukan +
-memperbaiki dua bug nyata di jalan: TOTAL laporan ekspor mencampur nominal
-masuk & keluar, dan `NavBackStackEntry.savedStateHandle` yang ternyata tak
-pernah benar-benar terhubung ke ViewModel tujuan — plus D-1 & B-6 ternyata
+Status per 11 September 2026 (diperbarui setelah B-1/B-2/B-3/B-4/B-8/B-9
+selesai, B-5 sebagian besar terverifikasi lewat emulator sungguhan — dan
+menemukan + memperbaiki tiga bug nyata di jalan: TOTAL laporan ekspor
+mencampur nominal masuk & keluar, `NavBackStackEntry.savedStateHandle` yang
+ternyata tak pernah benar-benar terhubung ke ViewModel tujuan, dan label
+sumbu-X grafik harian yang kehilangan digit kedua — plus D-1 & B-6 ternyata
 sudah lama selesai, catatan basi diperbaiki). Verifikasi terakhir:
 `assembleDebug`, `testDebugUnitTest` (26 tes hijau), `lintDebug` (0 temuan di
 kode `ui/` & `data/`) semua lulus. Release APK dengan R8: **3,24 MB**. Gestur
 seret (B-1) sudah diverifikasi manual di emulator sungguhan; mekanisme inti
 WorkManager (B-4) juga — Worker benar-benar dijadwalkan lewat
 `SystemJobScheduler` Android, bukan diam-diam tetap lewat coroutine biasa.
-Sisa pekerjaan nyata: skenario >5.000 baris sungguhan untuk B-4 (di luar
-jangkauan percobaan manual di sesi ini), grafik pengeluaran & saldo (belum
-dikerjakan), dan verifikasi visual B-5 di aplikasi spreadsheet asli — dicatat
-di bagian masing-masing.
+Grafik pengeluaran & saldo (B-9) juga sudah diverifikasi visual, Harian
+maupun Bulanan. Sisa pekerjaan nyata: skenario >5.000 baris sungguhan untuk
+B-4 (di luar jangkauan percobaan manual di sesi ini), dan verifikasi visual
+B-5 di aplikasi spreadsheet asli — dicatat di bagian masing-masing.
 
 ---
 
@@ -336,6 +337,46 @@ tambah kategori — ketiganya sekarang menampilkan kartu yang benar.
 `assembleDebug`, `testDebugUnitTest` (26 tes hijau, tak berubah — perbaikan
 ini murni jalur UI/navigasi, tak tersentuh tes JVM), `lintDebug` (0 temuan
 ui/ & data/) semua lulus.
+
+### B-9. Selesai 11 September 2026 — Grafik pengeluaran & grafik saldo tersisa
+
+Diminta pengguna, dengan tampilan Harian **dan** Bulanan untuk keduanya (satu
+toggle per grafik, gaya sama seperti `SegmentedTipe` yang sudah ada — digeneralisasi
+jadi `SegmentedDua` supaya tak ditulis ulang). Ditambahkan di Layar utama,
+setelah blok "Pengeluaran per kategori":
+
+- **Grafik pengeluaran** — grafik batang (`GrafikBatang`, warna `pengeluaran`).
+- **Grafik saldo tersisa** — grafik garis (`GrafikGaris`), titik hijau
+  (`pemasukan`) kalau nilainya ≥ 0 dan merah (`pengeluaran`) kalau negatif;
+  garis nol putus-putus muncul hanya kalau datanya benar-benar melintasi nol.
+- **Harian**: dalam periode yang sedang dilihat saja. Saldo dihitung kumulatif
+  dari 0 di awal periode — definisi yang sama dengan sheet "Harian" di ekspor
+  Excel (lihat B-3/RakitLaporan).
+- **Bulanan**: satu titik per periode untuk 6 periode terakhir termasuk
+  periode ini. Saldo bulanan **bukan** kumulatif lintas periode — tiap titik
+  cuma pemasukan−pengeluaran periode itu sendiri, arti yang sama dengan "Sisa
+  bulan ini" — aplikasi ini tak punya konsep "saldo rekening" yang berjalan
+  terus antar bulan, jadi menyambung titik-titik itu jadi kumulatif akan
+  menyiratkan sesuatu yang tak benar.
+- `DuitRepository.transaksiRentangTanggal(awal, akhir)` ditambahkan untuk
+  query rentang tanggal bebas (dipakai grafik bulanan) — memakai ulang
+  `TransaksiDao.amatiRentang` yang sudah generik, tanpa query baru.
+- Tanpa library chart pihak ketiga — digambar langsung dengan Compose
+  `Canvas`, konsisten dengan gaya proyek ini (semua komponen visual lain juga
+  buatan sendiri, bukan dari library).
+
+**Bug ditemukan & diperbaiki saat verifikasi manual di emulator:** label
+sumbu-X grafik harian (angka hari, bisa dua digit seperti "16", "21") tampil
+sebagai HANYA digit pertamanya ("1", "2") — `Text` di slot label yang sempit
+(1/30 lebar layar untuk sebulan penuh) tanpa `softWrap=false`/`maxLines=1`
+melipat digit kedua ke baris kedua yang lolos dari tinggi kotak label, jadi
+tak kelihatan sama sekali. Diperbaiki di `GrafikTren.kt`.
+
+`assembleDebug`, `testDebugUnitTest` (26 tes hijau — grafik ini murni
+presentasi UI, tak ada logika baru yang perlu tes JVM di luar yang sudah
+mengunci `Periode`/`Ringkasan`), `lintDebug` (0 temuan ui/ & data/) semua
+lulus. Diverifikasi visual di emulator: bar chart & line chart tampil benar
+di Harian maupun Bulanan, tanpa crash di logcat.
 
 ---
 
