@@ -21,6 +21,11 @@ maupun Bulanan. Sisa pekerjaan nyata: skenario >5.000 baris sungguhan untuk
 B-4 (di luar jangkauan percobaan manual di sesi ini), dan verifikasi visual
 B-5 di aplikasi spreadsheet asli — dicatat di bagian masing-masing.
 
+**Susulan 13 September 2026:** rebrand nama & warna jadi "Duitku" + splash
+screen + ikon launcher (§E), dan satu bug ketikan nyata ditemukan pengguna &
+diperbaiki (§F). `assembleDebug`, `testDebugUnitTest`, `lintDebug` tetap
+hijau setelahnya — rincian di masing-masing bagian.
+
 ---
 
 ## A. Disetujui 11 September 2026
@@ -411,3 +416,109 @@ di Harian maupun Bulanan, tanpa crash di logcat.
   terlalu rapat karena spec melarang scroll.
 - **Cold start tema**: `MainActivity` render dengan `Tema.SISTEM` sampai DataStore
   terbaca — kilatan singkat mungkin terlihat kalau user memilih tema non-default.
+
+---
+
+## E. Selesai 13 September 2026 — Rebrand "Duitku": splash, palet warna, ikon launcher
+
+Diminta pengguna, dengan referensi mockup `docs/duitpribadi-splash/` (paket
+Compose terpisah, bukan bagian app — sumber acuan visual, bukan kode yang
+dijalankan). Karena referensinya pakai brand biru-magenta yang beda total dari
+aksen hijau-teal yang sudah berjalan (dan nama "Duit Pribadi", bukan "Duit"),
+ini bertabrakan langsung dengan CLAUDE.md aturan "kalau spesifikasi dan kode
+bertabrakan, berhenti dan tanya" — dua pertanyaan diajukan sebelum menyentuh
+kode:
+
+**E-1. Nama produk: "Duitku"** (bukan "Duit Pribadi" dari referensi).
+Diterapkan ke `strings.xml` (`app_name`), `CLAUDE.md`, `docs/prd.md` (§ atas +
+§7 dulu bertuliskan "nama sementara"), dan metadata dokumen `.xlsx` hasil
+ekspor (`PenulisXlsx.kt`, sebelumnya literal `"Duit"`).
+
+**E-2. Cakupan warna: seluruh aplikasi sekaligus**, bukan splash saja. Pilihan
+yang diambil: `Aksen*` di `ui/theme/Color.kt` — yaitu `primary` Material yang
+dipakai di SELURUH layar (tombol, FAB, chip terpilih, tautan, app bar `+`) —
+ditinting ulang dari hijau-teal (`#0F7B62` terang / `#34C79E` gelap) ke biru
+brand (`#1152E4` terang / `#4F8BFF` gelap). Nilai hijau lama **dipertahankan
+persis**, dipindah ke konstanta baru `HijauPemasukan*`, supaya arti warna
+hijau/merah pemasukan-pengeluaran (`WarnaTambahan.pemasukan/pengeluaran`) tidak
+ikut berubah — brand primer dan sinyal transaksi sengaja dipisah jadi dua
+konsep warna, bukan satu seperti sebelumnya. Token brand sekunder baru:
+`Magenta`, `MagentaMuda`, `MagentaLembut`, `MagentaTeks`, `UnguGradien`.
+
+Kontras WCAG AA seluruh pasangan warna baru diukur (skrip Python, formula
+kontras W3C standar) sebelum dipakai — rinciannya ada di komentar
+`ui/theme/Color.kt`. Yang perlu dicatat: `AksenGelap` juga dipakai langsung
+(bukan lewat `primary`) di tiga tempat sebagai warna teks/tint di atas kartu
+gelap `#22262A` (`KartuUrungkan` tombol "URUNGKAN", `KartuNotifikasi` ikon
+centang, `EksporSheet` tombol "BUKA"/"BAGIKAN") — ketiganya otomatis ikut
+berubah jadi biru, sudah diverifikasi kontrasnya (4,69:1, lolos AA) bukan
+cuma ikut nilai lama tanpa dicek ulang.
+
+**E-3. Splash screen baru** — lihat `docs/design-spec.md` §10 untuk detail
+visual lengkap (token, ukuran, kontras). Ringkas: dua lapis (`Theme.Duit.Starting`
+via `core-splashscreen` untuk cold start instan, lalu `SplashScreen.kt` Compose
+untuk animasi brand penuh), blob gradien + tile logo + judul dua warna "Duit"
+(biru)+"ku" (magenta) + tagline + page indicator. Merged manifest diverifikasi
+tidak menambah izin apa pun (`androidx.core:core-splashscreen` bersih —
+langkah wajib per pola yang sama seperti B-4).
+
+**E-4. Ikon launcher** ditinting ke gradien brand yang sama. Sebelumnya masih
+placeholder default Android Studio (latar hijau `#3DDC84` + wajah maskot) —
+tak pernah dikustomisasi sejak proyek dibuat. Artwork dompet diperkecil &
+dipusatkan ke safe zone adaptive icon; ditemukan lewat percobaan langsung di
+emulator bahwa artwork versi splash (mengisi penuh kanvas 108×108) terpotong
+kasar oleh mask lingkaran API 31+ kalau dipakai apa adanya untuk launcher —
+karena itu foreground launcher dibuat terpisah, bukan reuse file splash.
+
+**Diverifikasi:** `assembleDebug`, `testDebugUnitTest`, `lintDebug` (tanpa
+temuan baru di luar warning pra-eksisting) semua lulus. Dicoba langsung di
+emulator sungguhan: splash sistem & Compose tampil benar di mode terang
+maupun gelap (termasuk setelah `pm clear` untuk memastikan tema default
+`Tema.SISTEM` benar-benar diuji, bukan preferensi tersimpan lama), FAB & aksen
+lain di Layar utama ikut biru sementara "Masuk"/"Keluar" tetap hijau/merah,
+ikon launcher tampil rapi tanpa terpotong di home screen.
+
+**Belum dikerjakan / perlu keputusanmu:**
+- Splash sistem (ikon statis sebelum Compose ambil alih) tetap sedikit
+  terpotong mask bulat di API 31+ — kosmetik saja (Compose splash yang jadi
+  kesan utama sudah benar), belum digambar ulang dengan safe zone sendiri.
+- `docs/prd.md` §5.2 masih mendaftar "Grafik ... TIDAK dikerjakan di Rilis 1"
+  padahal grafik pengeluaran & saldo (B-9) sudah dibangun & dipakai — kontradiksi
+  ini **sengaja tidak disentuh** sesi ini karena itu keputusan cakupan produk,
+  bukan sinkronisasi fakta sederhana seperti minSdk/DI/Dynamic Color di §7/§8
+  yang sudah diperbaiki. Perlu keputusanmu: apakah §5.2 dihapus poin itu, atau
+  F-5 diperluas mendokumentasikan grafik sebagai fitur resmi.
+
+## F. Selesai 13 September 2026 — Bug ketikan: kursor meloncat ke kiri di Catatan
+
+Dilaporkan pengguna: "ketika typing di catatan tidak lancar cursor selalu
+bergeser ke kiri setiap mengetik".
+
+**Akar masalah** di `TambahViewModel.kt`: `state` dibangun lewat
+`combine(tipeStr, nominal, kategoriId, tanggalEpoch, catatan) {...}
+.flatMapLatest { combine(repo.kategoriAktif(tipe), preferensi.aliran) {...} }`.
+Karena `flatMapLatest` di-key ke **seluruh** `Isian` (termasuk `catatan`),
+setiap ketikan membatalkan & membuka ulang query Room `kategoriAktif` +
+Flow DataStore `preferensi.aliran` dari nol. `OutlinedTextField` di
+`DialogCatatan` baru menampilkan huruf yang baru diketik setelah round-trip
+Room/DataStore itu selesai — untuk sepersekian detik field menampilkan teks
+satu-huruf-ketinggalan, lalu meloncat maju begitu data async tiba. Efek
+kumulatifnya saat mengetik cepat: terasa tersendat & kursor seperti terus
+meloncat ke kiri.
+
+**Perbaikan:** query Room dipisah ke flow sendiri (`kategoriUntukTipe`),
+di-key HANYA ke `tipe` (lewat `.map { }.distinctUntilChanged().flatMapLatest { }`)
+— jadi cuma re-subscribe kalau tipe transaksi benar-benar berganti, bukan tiap
+ketikan. Digabung ke field form (`isian`) lewat `combine` biasa (bukan
+`flatMapLatest`), yang murni menggabung nilai yang sudah ada di memori tanpa
+I/O. Mengetik catatan/nominal/tanggal sekarang tidak lagi memicu query apa pun.
+
+**Diverifikasi:** `assembleDebug`, `testDebugUnitTest` lulus. Percobaan
+mengetik otomatis lewat `adb shell input text` di emulator memberi sinyal
+membingungkan (huruf hilang/tertukar) — sudah diketahui dari catatan B-5
+bahwa `input text` tidak reliable untuk simulasi ketikan presisi di emulator
+ini (autokoreksi IME ikut campur), jadi bukan bukti tandingan terhadap
+perbaikan. Diagnosis akar masalah sendiri kuat (pola `flatMapLatest`-di-key-ke-
+seluruh-state adalah penyebab klasik & terdokumentasi baik untuk gejala persis
+ini). **Perlu kamu:** ketik langsung di field Catatan sungguhan untuk
+konfirmasi akhir rasanya sudah lancar.

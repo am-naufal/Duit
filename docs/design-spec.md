@@ -1,7 +1,7 @@
 # Spesifikasi tampilan — per layar
 
 Nilai di sini adalah nilai yang dipakai di mockup. Token yang disebut (`Spasi.layar`,
-`Sudut.kartu`, dst.) ada di `app/src/main/java/com/duit/ui/theme/`.
+`Sudut.kartu`, dst.) ada di `app/src/main/java/com/alenza/duit/ui/theme/`.
 
 Aturan umum untuk semua layar:
 
@@ -165,3 +165,52 @@ dari 59 dp dari kiri.
 - Kondisi kosong di tengah: ikon besar meredup, "Belum ada catatan bulan ini",
   "Catat pengeluaran pertamamu — cukup nominal dan kategori, di bawah 10 detik."
 - Panah putus-putus menunjuk ke FAB.
+
+---
+
+## 10. Splash (`ui/layar/splash/SplashScreen.kt`)
+
+Ditambahkan lewat rebrand "Duitku" (referensi mockup: `docs/duitpribadi-splash/`,
+lihat `docs/keputusan-tertunda.md` §E untuk riwayat keputusannya). Dua lapis:
+
+**Splash sistem** (`Theme.Duit.Starting` di `themes.xml`, lewat
+`core-splashscreen`) — muncul instan begitu ikon di-tap: latar
+`@color/splash_background` (sama dengan `LatarTerang`/`LatarGelap`, ikut
+qualifier `values-night`) + `ic_logo_duitku` di tengah. Ditutup otomatis begitu
+frame Compose pertama tergambar — tidak ditahan (`setKeepOnScreenCondition`)
+karena pembacaan `Preferensi` di `MainActivity` sudah sinkron & cepat.
+
+**Splash Compose** mengambil alih dengan animasi penuh, latar
+`MaterialTheme.colorScheme.background`:
+
+- **Blob dekoratif** — biru (kiri atas) & magenta (kanan bawah), digambar
+  `Canvas` dengan koordinat relatif lebar/tinggi layar (bukan dp tetap — aman
+  di semua ukuran layar), drift halus lewat `rememberInfiniteTransition`.
+  Warna `AksenTerang`/`AksenGelap` (biru) & `Magenta`/`MagentaMuda`/
+  `MagentaLembut` (murni dekoratif, tak perlu kontras AA).
+- **Tile logo** — `LayarSplash.logoUkuran` (136 dp), radius `Sudut.logo`
+  (34 dp), `LayarSplash.logoElevasi` (28 dp) dengan `ambientColor = AksenTerang`,
+  `spotColor = Magenta`. Isi: `ic_logo_duitku` (brand mark, pengecualian dari
+  aturan ikon garis — lihat CLAUDE.md). Animasi: alpha 320 ms lalu
+  `spring(DampingRatioMediumBouncy)` scale dari 0,72 → 1.
+- **Judul dua warna** — "Duit" warna `MaterialTheme.colorScheme.primary`, "ku"
+  warna `MagentaTeks` (terang) / `MagentaMuda` (gelap) — keduanya sudah diukur
+  lolos kontras AA teks besar (≥3:1), `MagentaTeks` malah lolos AA teks normal
+  (4,54:1 di atas `LatarTerang`). Gaya `GayaJudulSplash` (38 sp/700 — Bold,
+  bukan ExtraBold, karena Plus Jakarta Sans cuma di-bundle 4 bobot).
+- **Tagline** — "Kelola keuanganmu, raih masa depanmu", gaya
+  `GayaTaglineSplash` (15 sp/500), warna `teksRedup`.
+- **Page indicator** — pil `LayarSplash.indikatorPilLebar × indikatorPilTinggi`
+  (26×7 dp, `Sudut.pil`) warna `primary` · dot berdenyut (`Magenta`/
+  `MagentaMuda`) · dot statis `MagentaLembut`. Jarak `LayarSplash.indikatorJarak`,
+  margin bawah `LayarSplash.indikatorMarginBawah` (64 dp).
+- Judul & tagline fade-in + slide-up (offset 24 → 0) setelah delay 220 ms.
+  `holdMillis` default 1.600 ms sebelum `onFinished()` dipanggil, lalu
+  `MainActivity` crossfade (`fadeIn` + `scaleIn`, 400 ms) ke `DuitNav`.
+
+**Ikon launcher** (`ic_launcher_background.xml` / `ic_launcher_foreground.xml`)
+ditinting ke gradien brand yang sama (biru → ungu → magenta). Artwork dompet
+diperkecil ~62% & dipusatkan supaya masuk safe zone adaptive icon (lingkaran
+aman ⌀66 dp di kanvas 108 dp) — tidak terpotong mask apa pun. `monochrome`
+memakai file foreground yang sama (Android 13+ cuma memakai cakupan alfa,
+warna asli diabaikan).

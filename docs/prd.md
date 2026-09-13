@@ -6,7 +6,7 @@
 | **Platform** | Android native — Kotlin + Jetpack Compose |
 | **Penyimpanan** | 100% lokal di perangkat (Room / SQLite). Tanpa server, tanpa akun, tanpa internet |
 | **Pengguna** | Pemakaian pribadi (single user, satu perangkat) |
-| **Versi dokumen** | 1.1 — 29 Agustus 2026 (v1.1 menambahkan F-6 ekspor Excel) |
+| **Versi dokumen** | 1.2 — 13 September 2026 (v1.1 menambahkan F-6 ekspor Excel; v1.2 rebrand "Duitku" + splash screen, sinkronisasi minSdk/DI/Dynamic Color dengan implementasi sungguhan) |
 | **Status** | Draft untuk dieksekusi |
 
 ---
@@ -235,11 +235,11 @@ Keputusan final diambil setelah mengukur ukuran APK dengan `fastexcel` terpasang
 | Arsitektur | MVVM — Compose UI → ViewModel → Repository → DAO |
 | Database | Room (SQLite) |
 | Async | Coroutines + Flow |
-| DI | Hilt (atau manual DI kalau ingin APK sekecil mungkin) |
+| DI | Manual — factory `.dari(context)` di tiap kelas (`Preferensi`, `DuitRepository`, dst.), tanpa Hilt, supaya APK & waktu build tetap kecil |
 | Preferensi | DataStore |
 | Penulisan Excel | `fastexcel` (dhatim), writer-only — dengan penulis SpreadsheetML manual sebagai cadangan (lihat F-6) |
 | Tugas latar | WorkManager (hanya untuk ekspor bervolume besar) |
-| minSdk / targetSdk | 26 / 35 |
+| minSdk / targetSdk | 29 / 37 |
 
 **Prinsip yang mengikat**
 
@@ -281,6 +281,8 @@ Migrasi Room ditulis eksplisit sejak versi 1; `fallbackToDestructiveMigration` d
 ### Struktur layar
 
 ```
+SplashScreen            — brand reveal saat cold start, lihat §9
+
 MainScreen
 ├── Header bulan (◀ Agustus 2026 ▶)
 ├── Kartu ringkasan (masuk / keluar / selisih)
@@ -300,13 +302,19 @@ SettingsScreen          — tema, format tanggal, hari awal bulan, info versi
 - **Performa:** cold start ≤ 800 ms; semua query daftar berjalan di luar main thread.
 - **Offline:** seluruh fungsi bekerja dalam mode pesawat, karena memang tidak pernah menyentuh jaringan.
 - **Aksesibilitas:** target sentuh minimal 48 dp, content description pada semua ikon, kontras teks memenuhi WCAG AA, dan tata letak tidak rusak sampai ukuran font sistem 200%.
-- **Tema:** mendukung mode terang dan gelap, mengikuti setelan sistem; Dynamic Color (Material You) di Android 12+.
+- **Tema:** mendukung mode terang dan gelap, mengikuti setelan sistem (atau
+  dipilih manual di Pengaturan). Dynamic Color (Material You) **sengaja
+  dimatikan** — desainnya berpijak pada satu palet brand tetap ("Duitku":
+  biru–magenta) dan palet kategori dengan kroma setara; membiarkan wallpaper
+  pengguna mengubah warna itu akan menimpa arti warna hijau/merah
+  pemasukan-pengeluaran (lihat `ui/theme/Theme.kt`).
 - **Bahasa:** Bahasa Indonesia; format angka `Rp 1.500.000`, format tanggal `25 Agu 2026`.
 - **Data:** database berada di penyimpanan privat app, `allowBackup=false` agar isi database tidak ikut terkirim ke Google Backup tanpa disadari.
 
 ## 9. Alur pengalaman pertama (first run)
 
-1. Buka app → langsung layar utama, tanpa onboarding, tanpa permintaan izin.
+1. Buka app → splash brand singkat (± 1,6 detik, lihat `ui/layar/splash/`),
+   lalu langsung layar utama — tanpa onboarding, tanpa permintaan izin.
 2. Kategori bawaan sudah terisi.
 3. Empty state menampilkan satu kalimat dan panah ke tombol tambah.
 4. Satu bilah informasi sekali tampil: "Data hanya tersimpan di HP ini." — dengan tombol Mengerti.
@@ -352,6 +360,6 @@ SettingsScreen          — tema, format tanggal, hari awal bulan, info versi
 - [ ] Manifest terbukti tidak memuat permission penyimpanan.
 - [ ] File ekspor bulan berisi ≥ 100 transaksi diverifikasi terbuka bersih di Excel, Google Sheets, dan LibreOffice Calc.
 - [ ] Tes migrasi Room versi 1 → 2 berjalan (disiapkan lebih dulu meski belum ada versi 2).
-- [ ] Diuji pada Android 8 dan Android 14+, di mode terang dan gelap.
+- [ ] Diuji pada Android 10 (minSdk 29) dan Android 14+, di mode terang dan gelap.
 - [ ] Tidak ada crash setelah 7 hari pemakaian nyata.
 - [ ] APK rilis ditandatangani dan **keystore beserta passwordnya disimpan di tempat yang tidak akan hilang** — tanpa itu, app tidak bisa di-update di kemudian hari.

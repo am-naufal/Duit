@@ -6,7 +6,7 @@ Spesifikasi lengkap: `docs/prd.md`. Detail tampilan: `docs/design-spec.md`.
 ## Stack
 
 Kotlin · Jetpack Compose + Material 3 · Room (SQLite) · Coroutines + Flow ·
-DataStore · WorkManager (hanya untuk ekspor besar) · minSdk 26 / targetSdk 35.
+DataStore · WorkManager (hanya untuk ekspor besar) · minSdk 29 / targetSdk 37.
 
 ## Aturan yang tidak boleh dilanggar
 
@@ -33,16 +33,20 @@ DataStore · WorkManager (hanya untuk ekspor besar) · minSdk 26 / targetSdk 35.
 ## Nilai desain
 
 Semua warna, tipografi, spasi, sudut, dan ukuran sudah ada di
-`duit/app/src/main/java/com/duit/ui/theme/`. **Ambil dari sana, jangan tulis angka
-mentah di composable.** Kalau butuh nilai yang belum ada, tambahkan ke
+`app/src/main/java/com/alenza/duit/ui/theme/`. **Ambil dari sana, jangan tulis
+angka mentah di composable.** Kalau butuh nilai yang belum ada, tambahkan ke
 `Dimens.kt` dulu baru dipakai.
 
 Kontras teks/latar di file itu sudah diukur lolos WCAG AA. Kalau kamu mengubah
-sebuah warna, ukur ulang rasio kontrasnya sebelum commit.
+sebuah warna, ukur ulang rasio kontrasnya sebelum commit — termasuk kalau cuma
+menambah token baru (mis. warna brand sekunder), bukan cuma saat mengganti
+nilai lama.
 
 Ikon: vector drawable di `res/drawable/ic_*.xml`, digambar stroke 1,85 pada grid 24. Tinting lewat parameter `tint` di `Icon()`. Jangan pakai emoji, jangan pakai
 `Icons.Default.*` bawaan Material — gaya garisnya berbeda dan akan terlihat
-campur aduk.
+campur aduk. **Pengecualian:** brand mark (`ic_logo_duitku.xml`, ikon launcher
+`ic_launcher_background/foreground.xml`) boleh multi-warna/gradien — itu logo,
+bukan ikon fungsional, sama seperti ikon aplikasi Android pada umumnya.
 
 ## Struktur
 
