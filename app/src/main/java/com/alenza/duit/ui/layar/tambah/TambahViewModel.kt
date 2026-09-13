@@ -11,10 +11,13 @@ import com.alenza.duit.data.Preferensi
 import com.alenza.duit.data.TipeTransaksi
 import com.alenza.duit.data.Transaksi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -69,15 +72,32 @@ class TambahViewModel(
         val catatan: String,
     )
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<TambahState> = combine(
+    private val isian: Flow<Isian> = combine(
         tipeStr, nominal, kategoriId, tanggalEpoch, catatan,
     ) { t, n, k, tgl, c ->
         Isian(TipeTransaksi.valueOf(t), n, k, tgl, c)
-    }.flatMapLatest { isian ->
-        combine(repo.kategoriAktif(isian.tipe), preferensi.aliran) { kats, pref ->
-            bangun(isian, sisipkanArsipTerpilih(isian, kats), pref.formatTanggal)
-        }
+    }
+
+    /**
+     * Query Room di-key ke `tipe` saja — bukan ke seluruh [Isian] seperti versi
+     * lama (`flatMapLatest` atas kombinasi semua field form). Versi lama itu
+     * membatalkan & membuka ulang query kategori + `preferensi.aliran` pada
+     * SETIAP ketikan di field catatan (atau perubahan nominal/tanggal), jadi
+     * tampilan menunggu round-trip Room/DataStore untuk tiap huruf — itulah
+     * sumber kursor "meloncat ke kiri" & ketikan tersendat yang dilaporkan
+     * pengguna. Dipisah begini, mengetik catatan cuma menggabung ulang nilai
+     * yang sudah ada di memori (tanpa I/O), instan.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val kategoriUntukTipe: Flow<List<Kategori>> = tipeStr
+        .map { TipeTransaksi.valueOf(it) }
+        .distinctUntilChanged()
+        .flatMapLatest { repo.kategoriAktif(it) }
+
+    val state: StateFlow<TambahState> = combine(
+        isian, kategoriUntukTipe, preferensi.aliran,
+    ) { i, kats, pref ->
+        bangun(i, sisipkanArsipTerpilih(i, kats), pref.formatTanggal)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TambahState.awal())
 
     /**
