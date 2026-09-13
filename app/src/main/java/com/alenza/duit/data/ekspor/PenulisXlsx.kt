@@ -30,7 +30,7 @@ object PenulisXlsx {
 
     /** @param onProgress dipanggil 0f..1f selama menulis sheet Transaksi. */
     fun tulis(laporan: LaporanBulanan, keluaran: OutputStream, onProgress: (Float) -> Unit = {}) {
-        Workbook(keluaran, "Duit", "1.0").apply {
+        Workbook(keluaran, "Duitku", "1.0").apply {
             tulisRingkasan(newWorksheet("Ringkasan"), laporan)
             tulisTransaksi(newWorksheet("Transaksi"), laporan, onProgress)
             tulisHarian(newWorksheet("Harian"), laporan)

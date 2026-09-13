@@ -33,6 +33,8 @@ object Sudut {
     val sheet = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
     val pil = RoundedCornerShape(percent = 50)
     val peringatan = RoundedCornerShape(14.dp)
+    /** Tile logo brand di splash (docs/duitpribadi-splash). */
+    val logo = RoundedCornerShape(34.dp)
 }
 
 object Ukuran {
@@ -157,6 +159,23 @@ object LayarEkspor {
     val progresTinggi = 6.dp
     val tombolTinggi = 50.dp
     val peringatanSudut = 14.dp
+}
+
+/** Nilai spesifik Splash — brand "Duitku" (docs/duitpribadi-splash). */
+object LayarSplash {
+    val logoUkuran = 136.dp
+    val logoElevasi = 28.dp
+
+    /** Jarak logo → judul dan padding kiri-kanan layar — sama seperti [Spasi.xxxl]. */
+    val spasiKontenAtas get() = Spasi.xxxl
+    val spasiJudulTagline = 14.dp
+
+    val indikatorPilLebar = 26.dp
+    val indikatorPilTinggi = 7.dp
+    val indikatorDot = 7.dp
+    /** Jarak antar elemen page indicator — sama seperti [Spasi.s]. */
+    val indikatorJarak get() = Spasi.s
+    val indikatorMarginBawah = 64.dp
 }
 
 /** Nilai spesifik layar Tambah / Ubah transaksi (design-spec §2). */

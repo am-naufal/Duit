@@ -2,4 +2,16 @@
 <resources>
 
     <style name="Theme.Duit" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+      Splash sistem — tampil instan begitu ikon di-tap, sebelum frame Compose
+      pertama. Dipasang di level <activity> di AndroidManifest.xml (bukan
+      <application>) supaya activity lain tidak ikut menampilkan splash.
+      Diambil alih oleh SplashScreen.kt (docs/duitpribadi-splash).
+    -->
+    <style name="Theme.Duit.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_logo_duitku</item>
+        <item name="postSplashScreenTheme">@style/Theme.Duit</item>
+    </style>
 </resources>

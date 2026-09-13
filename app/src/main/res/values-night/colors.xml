@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Latar splash sistem mode gelap — sama dengan LatarGelap di Color.kt. -->
+    <color name="splash_background">#FF101214</color>
+</resources>
